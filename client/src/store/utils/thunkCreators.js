@@ -139,12 +139,17 @@ export const viewConversation =
 
 export const receiveMessage =
   (message, sender) => async (dispatch, getState) => {
-    await dispatch(setNewMessage(message, sender));
     const { conversations } = getState();
-    const activeConvo = conversations.find((convo) => convo.active);
-    activeConvo &&
-      activeConvo.otherUser.id === message.senderId &&
-      dispatch(
-        viewConversation(activeConvo.id, activeConvo.conversationUserId)
-      );
+    const messageConvo = conversations.find(
+      (convo) => convo.id === message.conversationId
+    );
+    // Only dispatch if this is a message that we care about
+    if (messageConvo) {
+      await dispatch(setNewMessage(message, sender));
+      if (messageConvo.active) {
+        dispatch(
+          viewConversation(messageConvo.id, messageConvo.conversationUserId)
+        );
+      }
+    }
   };
