@@ -5,7 +5,7 @@ import {
   addConversation,
   setNewMessage,
   setSearchedUsers,
-  setConversationViewed,
+  setMessageViewed,
 } from "../conversations";
 import { gotUser, setFetchingStatus } from "../user";
 
@@ -119,24 +119,6 @@ export const searchUsers = (searchTerm) => async (dispatch) => {
   }
 };
 
-export const viewConversation =
-  (conversationId, conversationUserId) => async (dispatch) => {
-    try {
-      const viewDate = new Date();
-      await axios.put(`/api/conversations/${conversationId}`, {
-        [`user${conversationUserId}LastViewed`]: viewDate,
-      });
-      dispatch(setConversationViewed(conversationId, viewDate));
-      socket.emit("conversation-viewed", {
-        conversationId,
-        conversationUserId,
-        viewDate,
-      });
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
 export const receiveMessage =
   (message, sender, recipientId) => async (dispatch, getState) => {
     const { conversations, user } = getState();
@@ -144,9 +126,20 @@ export const receiveMessage =
       await dispatch(setNewMessage(message, sender));
       const activeConvo = conversations.find((convo) => convo.active);
       if (activeConvo && activeConvo.id === message.conversationId) {
-        dispatch(
-          viewConversation(activeConvo.id, activeConvo.conversationUserId)
-        );
+        dispatch(viewMessage(activeConvo.id, message.id));
       }
     }
   };
+
+export const viewMessage = (conversationId, messageId) => async (dispatch) => {
+  try {
+    await axios.put(`/api/conversations/read/${messageId}`);
+    dispatch(setMessageViewed(conversationId));
+    socket.emit("message-viewed", {
+      conversationId,
+      messageId,
+    });
+  } catch (error) {
+    console.log(error);
+  }
+};

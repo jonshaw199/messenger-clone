@@ -56,8 +56,8 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("conversation-viewed", (data) => {
-    socket.broadcast.emit("conversation-viewed", data);
+  socket.on("message-viewed", (data) => {
+    socket.broadcast.emit("message-viewed", data);
   });
 });
 

@@ -1,6 +1,6 @@
 const router = require("express").Router();
 const { User, Conversation, Message } = require("../../db/models");
-const { Sequelize, Op } = require("sequelize");
+const { Op } = require("sequelize");
 const onlineUsers = require("../../onlineUsers");
 
 // get all conversations for a user, include latest message text for preview, and all messages
@@ -18,13 +18,7 @@ router.get("/", async (req, res, next) => {
           user2Id: userId,
         },
       },
-      attributes: [
-        "id",
-        "user1Id",
-        "user2Id",
-        "user1LastViewed",
-        "user2LastViewed",
-      ],
+      attributes: ["id"],
       order: [[Message, "createdAt", "ASC"]],
       include: [
         { model: Message },
@@ -80,68 +74,31 @@ router.get("/", async (req, res, next) => {
         convoJSON.otherUser.online = false;
       }
 
-      // Set the last view date on current user and "otherUser"
-      let curUserConversationUserId, otherUserConversationUserId;
-      if (convoJSON.otherUser.id === convoJSON.user1Id) {
-        curUserConversationUserId = 2;
-        otherUserConversationUserId = 1;
-      } else {
-        curUserConversationUserId = 1;
-        otherUserConversationUserId = 2;
-      }
-      convoJSON.conversationUserId = curUserConversationUserId;
-      convoJSON.lastViewed =
-        convoJSON[`user${curUserConversationUserId}LastViewed`];
-      convoJSON.otherUser.conversationUserId = otherUserConversationUserId;
-      convoJSON.otherUser.lastViewed =
-        convoJSON[`user${otherUserConversationUserId}LastViewed`];
-      delete convoJSON.user1Id;
-      delete convoJSON.user2Id;
-      delete convoJSON.user1LastViewed;
-      delete convoJSON.user2LastViewed;
-
-      // Set the number of unread messages for each user
+      // Sets number of messages unread by this user
       convoJSON.unreadMessages = await Message.count({
         where: {
           [Op.and]: {
-            [Op.or]: {
-              senderId: !convoJSON.lastViewed ? convoJSON.otherUser.id : -1,
-              createdAt: {
-                [Op.gt]: convoJSON.lastViewed,
-              },
-            },
-            senderId: convoJSON.otherUser.id,
             conversationId: convoJSON.id,
-          },
-        },
-      });
-      convoJSON.otherUser.unreadMessages = await Message.count({
-        where: {
-          [Op.and]: {
-            createdAt: {
-              [Op.gt]: convoJSON.otherUser.lastViewed,
-            },
-            senderId: userId,
+            senderId: convoJSON.otherUser.id,
+            read: false,
           },
         },
       });
 
       // Sets the last message read by the other user
-      const lastMsg = await Message.findOne({
+      const lastMsgViewed = await Message.findOne({
         attributes: ["id"],
         where: {
           [Op.and]: {
-            createdAt: {
-              [Op.lte]: convoJSON.otherUser.lastViewed,
-            },
             conversationId: convoJSON.id,
             senderId: userId,
+            read: true,
           },
         },
-        order: [["createdAt", "DESC"]],
+        order: [["id", "DESC"]],
       });
       convoJSON.otherUser.lastMessageViewed =
-        lastMsg && lastMsg.id ? lastMsg.id : null;
+        lastMsgViewed && lastMsgViewed.id ? lastMsgViewed.id : null;
 
       convoJSON.latestMessageText =
         convoJSON.messages[convoJSON.messages.length - 1].text;
@@ -155,12 +112,45 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-router.put("/:conversationId", async (req, res, next) => {
+router.put("/read/:messageId", async (req, res, next) => {
   try {
-    const conversation = await Conversation.update(req.body, {
-      where: { id: req.params.conversationId },
-    });
-    res.json({ conversation });
+    if (!req.user) {
+      return res.sendStatus(401);
+    }
+    const userId = req.user.id;
+    const msg = await Message.findByPk(req.params.messageId);
+    if (!msg) {
+      return res.sendStatus(404);
+    }
+    const convo = await Conversation.findByPk(msg.conversationId);
+    if (!convo) {
+      return res.sendStatus(404);
+    }
+    // Make sure this user is part of the conversation
+    if (![convo.user1Id, convo.user2Id].includes(userId)) {
+      return res.sendStatus(403);
+    }
+    // Make sure this user is not the sender
+    if (msg.senderId === userId) {
+      return res.sendStatus(403);
+    }
+    // Everything checks out so update the read status on this message and the previous ones
+    const result = await Message.update(
+      { read: true },
+      {
+        where: {
+          [Op.and]: {
+            conversationId: msg.conversationId,
+            senderId: msg.senderId,
+            id: {
+              [Op.lte]: msg.id,
+            },
+            read: false,
+          },
+        },
+      }
+    );
+    return res.json(result);
   } catch (error) {
     next(error);
   }

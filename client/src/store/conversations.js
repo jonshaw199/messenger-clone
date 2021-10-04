@@ -4,9 +4,9 @@ import {
   addSearchedUsersToStore,
   removeOfflineUserFromStore,
   addMessageToStore,
-  setConvoViewed,
-  setConvoViewedOther,
   setConvoActive,
+  setMsgViewed,
+  setMsgViewedOther,
 } from "./utils/reducerFunctions";
 
 // ACTIONS
@@ -18,9 +18,9 @@ const REMOVE_OFFLINE_USER = "REMOVE_OFFLINE_USER";
 const SET_SEARCHED_USERS = "SET_SEARCHED_USERS";
 const CLEAR_SEARCHED_USERS = "CLEAR_SEARCHED_USERS";
 const ADD_CONVERSATION = "ADD_CONVERSATION";
-const SET_CONVERSATION_VIEWED = "SET_CONVERSATION_VIEWED";
-const SET_OTHER_USER_VIEWED = "SET_OTHER_USER_VIEWED";
 const SET_ACTIVE_CHAT = "SET_ACTIVE_CHAT";
+const SET_MESSAGE_VIEWED = "SET_MESSAGE_VIEWED";
+const SET_MESSAGE_VIEWED_OTHER = "SET_MESSAGE_VIEWED_OTHER";
 
 // ACTION CREATORS
 
@@ -73,17 +73,17 @@ export const addConversation = (recipientId, newMessage) => {
   };
 };
 
-export const setConversationViewed = (conversationId, viewDate) => {
+export const setMessageViewed = (conversationId) => {
   return {
-    type: SET_CONVERSATION_VIEWED,
-    payload: { conversationId, viewDate },
+    type: SET_MESSAGE_VIEWED,
+    conversationId,
   };
 };
 
-export const setOtherUserViewed = (conversationId, viewDate) => {
+export const setMessageViewedOther = (conversationId, messageId) => {
   return {
-    type: SET_OTHER_USER_VIEWED,
-    payload: { conversationId, viewDate },
+    type: SET_MESSAGE_VIEWED_OTHER,
+    payload: { conversationId, messageId },
   };
 };
 
@@ -111,20 +111,16 @@ const reducer = (state = [], action) => {
         action.payload.recipientId,
         action.payload.newMessage
       );
-    case SET_CONVERSATION_VIEWED:
-      return setConvoViewed(
-        state,
-        action.payload.conversationId,
-        action.payload.viewDate
-      );
-    case SET_OTHER_USER_VIEWED:
-      return setConvoViewedOther(
-        state,
-        action.payload.conversationId,
-        action.payload.viewDate
-      );
     case SET_ACTIVE_CHAT:
       return setConvoActive(state, action.username);
+    case SET_MESSAGE_VIEWED:
+      return setMsgViewed(state, action.conversationId);
+    case SET_MESSAGE_VIEWED_OTHER:
+      return setMsgViewedOther(
+        state,
+        action.payload.conversationId,
+        action.payload.messageId
+      );
     default:
       return state;
   }

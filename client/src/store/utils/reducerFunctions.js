@@ -85,11 +85,18 @@ export const addNewConvoToStore = (state, recipientId, message) => {
   });
 };
 
-export const setConvoViewed = (state, conversationId, viewDate) => {
+export const setConvoActive = (state, username) => {
+  return state.map((convo) => {
+    const convoCopy = { ...convo };
+    convoCopy.active = convo.otherUser.username === username;
+    return convoCopy;
+  });
+};
+
+export const setMsgViewed = (state, conversationId) => {
   return state.map((convo) => {
     if (convo.id === conversationId) {
       const convoCopy = { ...convo };
-      convoCopy.lastViewed = viewDate;
       convoCopy.unreadMessages = 0;
       return convoCopy;
     } else {
@@ -98,25 +105,14 @@ export const setConvoViewed = (state, conversationId, viewDate) => {
   });
 };
 
-export const setConvoViewedOther = (state, conversationId, viewDate) => {
+export const setMsgViewedOther = (state, conversationId, messageId) => {
   return state.map((convo) => {
     if (convo.id === conversationId) {
       const convoCopy = { ...convo };
-      convoCopy.otherUser.lastViewed = viewDate;
-      convoCopy.otherUser.lastMessageViewed =
-        convoCopy.messages[convoCopy.messages.length - 1].id;
-      convoCopy.otherUser.unreadMessages = 0;
+      convoCopy.otherUser.lastMessageViewed = messageId;
       return convoCopy;
     } else {
       return convo;
     }
-  });
-};
-
-export const setConvoActive = (state, username) => {
-  return state.map((convo) => {
-    const convoCopy = { ...convo };
-    convoCopy.active = convo.otherUser.username === username;
-    return convoCopy;
   });
 };

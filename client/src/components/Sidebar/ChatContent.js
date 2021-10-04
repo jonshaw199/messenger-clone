@@ -25,7 +25,7 @@ const useStyles = makeStyles((theme) => ({
   counterContainer: {
     display: "flex",
     alignItems: "center",
-    marginRight: 20,
+    marginRight: theme.spacing(2),
   },
   counter: {
     fontWeight: 900,

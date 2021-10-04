@@ -3,7 +3,7 @@ import store from "./store";
 import {
   removeOfflineUser,
   addOnlineUser,
-  setOtherUserViewed,
+  setMessageViewedOther,
 } from "./store/conversations";
 import { receiveMessage } from "./store/utils/thunkCreators";
 
@@ -24,8 +24,8 @@ socket.on("connect", () => {
     store.dispatch(receiveMessage(data.message, data.sender, data.recipientId));
   });
 
-  socket.on("conversation-viewed", (data) => {
-    store.dispatch(setOtherUserViewed(data.conversationId, data.viewDate));
+  socket.on("message-viewed", (data) => {
+    store.dispatch(setMessageViewedOther(data.conversationId, data.messageId));
   });
 });
 
