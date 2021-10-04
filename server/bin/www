@@ -44,6 +44,7 @@ io.on("connection", (socket) => {
     socket.broadcast.emit("new-message", {
       message: data.message,
       sender: data.sender,
+      recipientId: data.recipientId,
     });
   });
 
@@ -53,6 +54,10 @@ io.on("connection", (socket) => {
       onlineUsers.splice(userIndex, 1);
       socket.broadcast.emit("remove-offline-user", id);
     }
+  });
+
+  socket.on("message-viewed", (data) => {
+    socket.broadcast.emit("message-viewed", data);
   });
 });
 

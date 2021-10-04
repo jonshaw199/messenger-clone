@@ -5,6 +5,7 @@ import {
   addConversation,
   setNewMessage,
   setSearchedUsers,
+  setMessageViewed,
 } from "../conversations";
 import { gotUser, setFetchingStatus } from "../user";
 
@@ -115,5 +116,30 @@ export const searchUsers = (searchTerm) => async (dispatch) => {
     dispatch(setSearchedUsers(data));
   } catch (error) {
     console.error(error);
+  }
+};
+
+export const receiveMessage =
+  (message, sender, recipientId) => async (dispatch, getState) => {
+    const { conversations, user } = getState();
+    if (user.id === recipientId) {
+      await dispatch(setNewMessage(message, sender));
+      const activeConvo = conversations.find((convo) => convo.active);
+      if (activeConvo && activeConvo.id === message.conversationId) {
+        dispatch(viewMessage(activeConvo.id, message.id));
+      }
+    }
+  };
+
+export const viewMessage = (conversationId, messageId) => async (dispatch) => {
+  try {
+    await axios.put(`/api/conversations/read/${messageId}`);
+    dispatch(setMessageViewed(conversationId));
+    socket.emit("message-viewed", {
+      conversationId,
+      messageId,
+    });
+  } catch (error) {
+    console.log(error);
   }
 };

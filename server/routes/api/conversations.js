@@ -74,13 +74,83 @@ router.get("/", async (req, res, next) => {
         convoJSON.otherUser.online = false;
       }
 
-      // set properties for notification count and latest message preview
+      // Sets number of messages unread by this user
+      convoJSON.unreadMessages = await Message.count({
+        where: {
+          [Op.and]: {
+            conversationId: convoJSON.id,
+            senderId: convoJSON.otherUser.id,
+            read: false,
+          },
+        },
+      });
+
+      // Sets the last message read by the other user
+      const lastMsgViewed = await Message.findOne({
+        attributes: ["id"],
+        where: {
+          [Op.and]: {
+            conversationId: convoJSON.id,
+            senderId: userId,
+            read: true,
+          },
+        },
+        order: [["id", "DESC"]],
+      });
+      convoJSON.otherUser.lastMessageViewed =
+        lastMsgViewed && lastMsgViewed.id ? lastMsgViewed.id : null;
+
       convoJSON.latestMessageText =
         convoJSON.messages[convoJSON.messages.length - 1].text;
+
       conversations[i] = convoJSON;
     }
 
     res.json(conversations);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.put("/read/:messageId", async (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.sendStatus(401);
+    }
+    const userId = req.user.id;
+    const msg = await Message.findByPk(req.params.messageId);
+    if (!msg) {
+      return res.sendStatus(404);
+    }
+    const convo = await Conversation.findByPk(msg.conversationId);
+    if (!convo) {
+      return res.sendStatus(404);
+    }
+    // Make sure this user is part of the conversation
+    if (![convo.user1Id, convo.user2Id].includes(userId)) {
+      return res.sendStatus(403);
+    }
+    // Make sure this user is not the sender
+    if (msg.senderId === userId) {
+      return res.sendStatus(403);
+    }
+    // Everything checks out so update the read status on this message and the previous ones
+    await Message.update(
+      { read: true },
+      {
+        where: {
+          [Op.and]: {
+            conversationId: msg.conversationId,
+            senderId: msg.senderId,
+            id: {
+              [Op.lte]: msg.id,
+            },
+            read: false,
+          },
+        },
+      }
+    );
+    return res.sendStatus(204);
   } catch (error) {
     next(error);
   }
