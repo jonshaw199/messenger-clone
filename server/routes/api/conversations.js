@@ -135,7 +135,7 @@ router.put("/read/:messageId", async (req, res, next) => {
       return res.sendStatus(403);
     }
     // Everything checks out so update the read status on this message and the previous ones
-    const result = await Message.update(
+    await Message.update(
       { read: true },
       {
         where: {
@@ -150,7 +150,7 @@ router.put("/read/:messageId", async (req, res, next) => {
         },
       }
     );
-    return res.json(result);
+    return res.sendStatus(204);
   } catch (error) {
     next(error);
   }
