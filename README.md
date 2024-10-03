@@ -1,8 +1,8 @@
 # Messenger
 
-A one-to-one realtime chat app.
+A one-to-one realtime chat app, similar to the old Facebook Messenger.
 
-[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/from-referrer/)
+![Screenshot](screenshot.png)
 
 ## Initial Setup
 
