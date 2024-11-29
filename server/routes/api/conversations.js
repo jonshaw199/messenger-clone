@@ -1,6 +1,6 @@
 const router = require("express").Router();
 const { User, Conversation, Message } = require("../../db/models");
-const { Op } = require("sequelize");
+const { Op, Sequelize } = require("sequelize");
 const onlineUsers = require("../../onlineUsers");
 
 // get all conversations for a user, include latest message text for preview, and all messages
@@ -13,38 +13,13 @@ router.get("/", async (req, res, next) => {
     const userId = req.user.id;
     const conversations = await Conversation.findAll({
       where: {
-        [Op.or]: {
-          user1Id: userId,
-          user2Id: userId,
+        userIds: {
+          [Op.contains]: [userId],
         },
       },
-      attributes: ["id"],
+      attributes: ["id", "userIds"],
       order: [[Message, "createdAt", "ASC"]],
-      include: [
-        { model: Message },
-        {
-          model: User,
-          as: "user1",
-          where: {
-            id: {
-              [Op.not]: userId,
-            },
-          },
-          attributes: ["id", "username", "photoUrl"],
-          required: false,
-        },
-        {
-          model: User,
-          as: "user2",
-          where: {
-            id: {
-              [Op.not]: userId,
-            },
-          },
-          attributes: ["id", "username", "photoUrl"],
-          required: false,
-        },
-      ],
+      include: Message,
     });
 
     // The query above sorts the messages (ascending) and this sorts the conversations (descending)
@@ -58,6 +33,64 @@ router.get("/", async (req, res, next) => {
       const convo = conversations[i];
       const convoJSON = convo.toJSON();
 
+      // Get other users
+      convoJSON.otherUsers = await User.findAll({
+        attributes: ["id", "username", "photoUrl"],
+        where: {
+          [Op.and]: {
+            id: {
+              [Op.in]: convoJSON.userIds,
+            },
+            [Op.not]: {
+              id: userId,
+            },
+          },
+        },
+      });
+      delete convoJSON.userIds;
+
+      for (let j = 0; j < convoJSON.otherUsers.length; j++) {
+        // Set online status
+        const user = convoJSON.otherUsers[j];
+        const userJSON = user.toJSON();
+        userJSON.online = onlineUsers.includes(userJSON.id);
+        // Sets the last message read
+        const lastMsgViewed = await Message.findOne({
+          attributes: ["id"],
+          where: {
+            [Op.and]: {
+              conversationId: convoJSON.id,
+              senderId: userId,
+              reads: {
+                [Op.contains]: [userJSON.id],
+              },
+            },
+          },
+          order: [["id", "DESC"]],
+        });
+        userJSON.lastMessageViewed =
+          lastMsgViewed && lastMsgViewed.id ? lastMsgViewed.id : null;
+        convoJSON.otherUsers[j] = userJSON;
+      }
+
+      // Sets number of messages unread by this user
+      convoJSON.unreadMessages = await Message.count({
+        where: {
+          [Op.and]: {
+            conversationId: convoJSON.id,
+            [Op.not]: {
+              senderId: userId,
+            },
+            [Op.not]: {
+              reads: {
+                [Op.contains]: [userId],
+              },
+            },
+          },
+        },
+      });
+
+      /*
       // set a property "otherUser" so that frontend will have easier access
       if (convoJSON.user1) {
         convoJSON.otherUser = convoJSON.user1;
@@ -99,6 +132,7 @@ router.get("/", async (req, res, next) => {
       });
       convoJSON.otherUser.lastMessageViewed =
         lastMsgViewed && lastMsgViewed.id ? lastMsgViewed.id : null;
+      */
 
       convoJSON.latestMessageText =
         convoJSON.messages[convoJSON.messages.length - 1].text;
